@@ -65,6 +65,9 @@ namespace Python.Runtime {
         //====================================================================
 
         public static List<string> GetGenericBaseNames(string ns) {
+            if (ns == null) {
+                return null;
+            }
             Dictionary<string, List<string>> nsmap = null;
             mapping.TryGetValue(ns, out nsmap);
             if (nsmap == null) {
@@ -136,6 +139,9 @@ namespace Python.Runtime {
         //====================================================================
 
         public static string GenericNameForBaseName(string ns, string name) {
+            if ((ns == null) || (name == null) {
+                return null;
+            }
             Dictionary<string, List<string>> nsmap = null;
             mapping.TryGetValue(ns, out nsmap);
             if (nsmap == null) {
