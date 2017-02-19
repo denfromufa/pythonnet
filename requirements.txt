@@ -1,11 +1,11 @@
 # Requirements for both Travis and AppVeyor
 pytest
 coverage
+pycparser
 
 # Platform specific requirements
 pip; sys_platform == 'win32'
 wheel; sys_platform == 'win32'
-pycparser; sys_platform != 'win32'
 
 # Coverage upload
 # codecov v2.0.6 isn't on PyPi
