@@ -4,6 +4,13 @@ using Python.Runtime;
 
 namespace Python.EmbeddingTest
 {
+    /// <summary>
+    /// Test Python Exceptions
+    /// </summary>
+    /// <remarks>
+    /// Keeping this in the old-style SetUp/TearDown
+    /// to ensure that setup still works.
+    /// </remarks>
     [TestFixture]
     public class PythonExceptionTest
     {
@@ -26,7 +33,7 @@ namespace Python.EmbeddingTest
         [Test]
         public void TestMessage()
         {
-            PyList list = new PyList();
+            var list = new PyList();
             try
             {
                 PyObject junk = list[0];
@@ -40,7 +47,7 @@ namespace Python.EmbeddingTest
         [Test]
         public void TestNoError()
         {
-            PythonException e = new PythonException(); //There is no PyErr to fetch
+            var e = new PythonException(); // There is no PyErr to fetch
             Assert.AreEqual("", e.Message);
         }
     }

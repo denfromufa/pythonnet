@@ -1,12 +1,10 @@
 using System;
 
-
 namespace Python.Test
 {
-    //========================================================================
-    // Supports CLR Exception unit tests.
-    //========================================================================
-
+    /// <summary>
+    /// Supports CLR Exception unit tests.
+    /// </summary>
     public class ExceptionTest
     {
         public int ThrowProperty
@@ -55,12 +53,31 @@ namespace Python.Test
         {
             throw new OverflowException("error");
         }
+
+        public static void ThrowChainedExceptions()
+        {
+            try
+            {
+                try
+                {
+                    throw new Exception("Innermost exception");
+                }
+                catch (Exception exc)
+                {
+                    throw new Exception("Inner exception", exc);
+                }
+            }
+            catch (Exception exc2)
+            {
+                throw new Exception("Outer exception", exc2);
+            }
+        }
     }
 
 
     public class ExtendedException : OverflowException
     {
-        public ExtendedException() : base()
+        public ExtendedException()
         {
         }
 

@@ -1,16 +1,13 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Collections;
-using System.Reflection;
 
 namespace Python.Runtime
 {
-    //========================================================================
-    // Common base class for all objects that are implemented in managed
-    // code. It defines the common fields that associate CLR and Python
-    // objects and common utilities to convert between those identities.
-    //========================================================================
-
+    /// <summary>
+    /// Common base class for all objects that are implemented in managed
+    /// code. It defines the common fields that associate CLR and Python
+    /// objects and common utilities to convert between those identities.
+    /// </summary>
     internal abstract class ManagedType
     {
         internal GCHandle gcHandle; // Native handle
@@ -18,10 +15,9 @@ namespace Python.Runtime
         internal IntPtr tpHandle; // PyType *
 
 
-        //====================================================================
-        // Given a Python object, return the associated managed object or null.
-        //====================================================================
-
+        /// <summary>
+        /// Given a Python object, return the associated managed object or null.
+        /// </summary>
         internal static ManagedType GetManagedObject(IntPtr ob)
         {
             if (ob != IntPtr.Zero)
@@ -32,28 +28,14 @@ namespace Python.Runtime
                     tp = ob;
                 }
 
-                int flags = (int)Marshal.ReadIntPtr(tp, TypeOffset.tp_flags);
+                var flags = (int)Marshal.ReadIntPtr(tp, TypeOffset.tp_flags);
                 if ((flags & TypeFlags.Managed) != 0)
                 {
-                    IntPtr op = (tp == ob)
+                    IntPtr op = tp == ob
                         ? Marshal.ReadIntPtr(tp, TypeOffset.magic())
                         : Marshal.ReadIntPtr(ob, ObjectOffset.magic(ob));
-                    GCHandle gc = (GCHandle)op;
+                    var gc = (GCHandle)op;
                     return (ManagedType)gc.Target;
-                }
-
-                // In certain situations, we need to recognize a wrapped
-                // exception class and be willing to unwrap the class :(
-
-                if (Runtime.wrap_exceptions)
-                {
-                    IntPtr e = Exceptions.UnwrapExceptionClass(ob);
-                    if ((e != IntPtr.Zero) && (e != ob))
-                    {
-                        ManagedType m = GetManagedObject(e);
-                        Runtime.Decref(e);
-                        return m;
-                    }
                 }
             }
             return null;
@@ -65,9 +47,7 @@ namespace Python.Runtime
             ManagedType result = GetManagedObject(ob);
             if (result == null)
             {
-                Exceptions.SetError(Exceptions.TypeError,
-                    "invalid argument, expected CLR type"
-                    );
+                Exceptions.SetError(Exceptions.TypeError, "invalid argument, expected CLR type");
             }
             return result;
         }
@@ -83,7 +63,7 @@ namespace Python.Runtime
                     tp = ob;
                 }
 
-                int flags = (int)Marshal.ReadIntPtr(tp, TypeOffset.tp_flags);
+                var flags = (int)Marshal.ReadIntPtr(tp, TypeOffset.tp_flags);
                 if ((flags & TypeFlags.Managed) != 0)
                 {
                     return true;

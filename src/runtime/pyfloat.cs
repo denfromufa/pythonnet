@@ -1,18 +1,18 @@
 using System;
-using System.Runtime.InteropServices;
 
 namespace Python.Runtime
 {
     /// <summary>
     /// Represents a Python float object. See the documentation at
-    /// http://www.python.org/doc/current/api/floatObjects.html
+    /// PY2: https://docs.python.org/2/c-api/float.html
+    /// PY3: https://docs.python.org/3/c-api/float.html
+    /// for details.
     /// </summary>
     public class PyFloat : PyNumber
     {
         /// <summary>
         /// PyFloat Constructor
         /// </summary>
-        ///
         /// <remarks>
         /// Creates a new PyFloat from an existing object reference. Note
         /// that the instance assumes ownership of the object reference.
@@ -26,19 +26,18 @@ namespace Python.Runtime
         /// <summary>
         /// PyFloat Constructor
         /// </summary>
-        ///
         /// <remarks>
         /// Copy constructor - obtain a PyFloat from a generic PyObject. An
         /// ArgumentException will be thrown if the given object is not a
         /// Python float object.
         /// </remarks>
-        public PyFloat(PyObject o) : base()
+        public PyFloat(PyObject o)
         {
             if (!IsFloatType(o))
             {
                 throw new ArgumentException("object is not a float");
             }
-            Runtime.Incref(o.obj);
+            Runtime.XIncref(o.obj);
             obj = o.obj;
         }
 
@@ -46,11 +45,10 @@ namespace Python.Runtime
         /// <summary>
         /// PyFloat Constructor
         /// </summary>
-        ///
         /// <remarks>
         /// Creates a new Python float from a double value.
         /// </remarks>
-        public PyFloat(double value) : base()
+        public PyFloat(double value)
         {
             obj = Runtime.PyFloat_FromDouble(value);
             if (obj == IntPtr.Zero)
@@ -63,13 +61,12 @@ namespace Python.Runtime
         /// <summary>
         /// PyFloat Constructor
         /// </summary>
-        ///
         /// <remarks>
         /// Creates a new Python float from a string value.
         /// </remarks>
-        public PyFloat(string value) : base()
+        public PyFloat(string value)
         {
-            using (PyString s = new PyString(value))
+            using (var s = new PyString(value))
             {
                 obj = Runtime.PyFloat_FromString(s.obj, IntPtr.Zero);
                 if (obj == IntPtr.Zero)
@@ -83,7 +80,6 @@ namespace Python.Runtime
         /// <summary>
         /// IsFloatType Method
         /// </summary>
-        ///
         /// <remarks>
         /// Returns true if the given object is a Python float.
         /// </remarks>
@@ -96,8 +92,6 @@ namespace Python.Runtime
         /// <summary>
         /// AsFloat Method
         /// </summary>
-        ///
-        /// <remarks>
         /// <remarks>
         /// Convert a Python object to a Python float if possible, raising
         /// a PythonException if the conversion is not possible. This is

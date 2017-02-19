@@ -2,36 +2,32 @@ using System;
 
 namespace Python.Runtime
 {
-    //========================================================================
-    // Implements a Python event binding type, similar to a method binding.
-    //========================================================================
-
+    /// <summary>
+    /// Implements a Python event binding type, similar to a method binding.
+    /// </summary>
     internal class EventBinding : ExtensionType
     {
-        EventObject e;
-        IntPtr target;
+        private EventObject e;
+        private IntPtr target;
 
-        public EventBinding(EventObject e, IntPtr target) : base()
+        public EventBinding(EventObject e, IntPtr target)
         {
-            Runtime.Incref(target);
+            Runtime.XIncref(target);
             this.target = target;
             this.e = e;
         }
 
 
-        //====================================================================
-        // EventBinding += operator implementation.
-        //====================================================================
-
+        /// <summary>
+        /// EventBinding += operator implementation.
+        /// </summary>
         public static IntPtr nb_inplace_add(IntPtr ob, IntPtr arg)
         {
-            EventBinding self = (EventBinding)GetManagedObject(ob);
+            var self = (EventBinding)GetManagedObject(ob);
 
             if (Runtime.PyCallable_Check(arg) < 1)
             {
-                Exceptions.SetError(Exceptions.TypeError,
-                    "event handlers must be callable"
-                    );
+                Exceptions.SetError(Exceptions.TypeError, "event handlers must be callable");
                 return IntPtr.Zero;
             }
 
@@ -40,24 +36,21 @@ namespace Python.Runtime
                 return IntPtr.Zero;
             }
 
-            Runtime.Incref(self.pyHandle);
+            Runtime.XIncref(self.pyHandle);
             return self.pyHandle;
         }
 
 
-        //====================================================================
-        // EventBinding -= operator implementation.
-        //====================================================================
-
+        /// <summary>
+        /// EventBinding -= operator implementation.
+        /// </summary>
         public static IntPtr nb_inplace_subtract(IntPtr ob, IntPtr arg)
         {
-            EventBinding self = (EventBinding)GetManagedObject(ob);
+            var self = (EventBinding)GetManagedObject(ob);
 
             if (Runtime.PyCallable_Check(arg) < 1)
             {
-                Exceptions.SetError(Exceptions.TypeError,
-                    "invalid event handler"
-                    );
+                Exceptions.SetError(Exceptions.TypeError, "invalid event handler");
                 return IntPtr.Zero;
             }
 
@@ -66,18 +59,17 @@ namespace Python.Runtime
                 return IntPtr.Zero;
             }
 
-            Runtime.Incref(self.pyHandle);
+            Runtime.XIncref(self.pyHandle);
             return self.pyHandle;
         }
 
 
-        //====================================================================
-        // EventBinding  __hash__ implementation.
-        //====================================================================
-
+        /// <summary>
+        /// EventBinding  __hash__ implementation.
+        /// </summary>
         public static IntPtr tp_hash(IntPtr ob)
         {
-            EventBinding self = (EventBinding)GetManagedObject(ob);
+            var self = (EventBinding)GetManagedObject(ob);
             long x = 0;
             long y = 0;
 
@@ -107,27 +99,25 @@ namespace Python.Runtime
         }
 
 
-        //====================================================================
-        // EventBinding __repr__ implementation.
-        //====================================================================
-
+        /// <summary>
+        /// EventBinding __repr__ implementation.
+        /// </summary>
         public static IntPtr tp_repr(IntPtr ob)
         {
-            EventBinding self = (EventBinding)GetManagedObject(ob);
-            string type = (self.target == IntPtr.Zero) ? "unbound" : "bound";
-            string s = String.Format("<{0} event '{1}'>", type, self.e.name);
+            var self = (EventBinding)GetManagedObject(ob);
+            string type = self.target == IntPtr.Zero ? "unbound" : "bound";
+            string s = string.Format("<{0} event '{1}'>", type, self.e.name);
             return Runtime.PyString_FromString(s);
         }
 
 
-        //====================================================================
-        // EventBinding dealloc implementation.
-        //====================================================================
-
-        public static new void tp_dealloc(IntPtr ob)
+        /// <summary>
+        /// EventBinding dealloc implementation.
+        /// </summary>
+        public new static void tp_dealloc(IntPtr ob)
         {
-            EventBinding self = (EventBinding)GetManagedObject(ob);
-            Runtime.Decref(self.target);
+            var self = (EventBinding)GetManagedObject(ob);
+            Runtime.XDecref(self.target);
             ExtensionType.FinalizeObject(self);
         }
     }

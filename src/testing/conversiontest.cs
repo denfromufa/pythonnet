@@ -1,12 +1,8 @@
-using System;
-
-
 namespace Python.Test
 {
-    //========================================================================
-    // Supports units tests for field access.
-    //========================================================================
-
+    /// <summary>
+    /// Supports units tests for field access.
+    /// </summary>
     public class ConversionTest
     {
         public ConversionTest()
@@ -46,7 +42,7 @@ namespace Python.Test
 
     public class Spam : ISpam
     {
-        string value;
+        private string value;
 
         public Spam(string value)
         {

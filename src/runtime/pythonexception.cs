@@ -15,26 +15,26 @@ namespace Python.Runtime
         private string _message = "";
         private bool disposed = false;
 
-        public PythonException() : base()
+        public PythonException()
         {
             IntPtr gs = PythonEngine.AcquireLock();
             Runtime.PyErr_Fetch(ref _pyType, ref _pyValue, ref _pyTB);
-            Runtime.Incref(_pyType);
-            Runtime.Incref(_pyValue);
-            Runtime.Incref(_pyTB);
-            if ((_pyType != IntPtr.Zero) && (_pyValue != IntPtr.Zero))
+            Runtime.XIncref(_pyType);
+            Runtime.XIncref(_pyValue);
+            Runtime.XIncref(_pyTB);
+            if (_pyType != IntPtr.Zero && _pyValue != IntPtr.Zero)
             {
                 string type;
                 string message;
-                Runtime.Incref(_pyType);
-                using (PyObject pyType = new PyObject(_pyType))
+                Runtime.XIncref(_pyType);
+                using (var pyType = new PyObject(_pyType))
                 using (PyObject pyTypeName = pyType.GetAttr("__name__"))
                 {
                     type = pyTypeName.ToString();
                 }
 
-                Runtime.Incref(_pyValue);
-                using (PyObject pyValue = new PyObject(_pyValue))
+                Runtime.XIncref(_pyValue);
+                using (var pyValue = new PyObject(_pyValue))
                 {
                     message = pyValue.ToString();
                 }
@@ -43,8 +43,8 @@ namespace Python.Runtime
             if (_pyTB != IntPtr.Zero)
             {
                 PyObject tb_module = PythonEngine.ImportModule("traceback");
-                Runtime.Incref(_pyTB);
-                using (PyObject pyTB = new PyObject(_pyTB))
+                Runtime.XIncref(_pyTB);
+                using (var pyTB = new PyObject(_pyTB))
                 {
                     _tb = tb_module.InvokeMethod("format_tb", pyTB).ToString();
                 }
@@ -76,7 +76,6 @@ namespace Python.Runtime
         /// <summary>
         /// PyType Property
         /// </summary>
-        ///
         /// <remarks>
         /// Returns the exception type as a Python object.
         /// </remarks>
@@ -88,7 +87,6 @@ namespace Python.Runtime
         /// <summary>
         /// PyValue Property
         /// </summary>
-        ///
         /// <remarks>
         /// Returns the exception value as a Python object.
         /// </remarks>
@@ -100,7 +98,6 @@ namespace Python.Runtime
         /// <summary>
         /// PyTB Property
         /// </summary>
-        ///
         /// <remarks>
         /// Returns the TraceBack as a Python object.
         /// </remarks>
@@ -112,7 +109,6 @@ namespace Python.Runtime
         /// <summary>
         /// Message Property
         /// </summary>
-        ///
         /// <remarks>
         /// A string representing the python exception message.
         /// </remarks>
@@ -124,7 +120,6 @@ namespace Python.Runtime
         /// <summary>
         /// StackTrace Property
         /// </summary>
-        ///
         /// <remarks>
         /// A string representing the python exception stack trace.
         /// </remarks>
@@ -137,7 +132,6 @@ namespace Python.Runtime
         /// <summary>
         /// Dispose Method
         /// </summary>
-        ///
         /// <remarks>
         /// The Dispose method provides a way to explicitly release the
         /// Python objects represented by a PythonException.
@@ -149,12 +143,12 @@ namespace Python.Runtime
                 if (Runtime.Py_IsInitialized() > 0)
                 {
                     IntPtr gs = PythonEngine.AcquireLock();
-                    Runtime.Decref(_pyType);
-                    Runtime.Decref(_pyValue);
+                    Runtime.XDecref(_pyType);
+                    Runtime.XDecref(_pyValue);
                     // XXX Do we ever get TraceBack? //
                     if (_pyTB != IntPtr.Zero)
                     {
-                        Runtime.Decref(_pyTB);
+                        Runtime.XDecref(_pyTB);
                     }
                     PythonEngine.ReleaseLock(gs);
                 }
@@ -166,7 +160,6 @@ namespace Python.Runtime
         /// <summary>
         /// Matches Method
         /// </summary>
-        ///
         /// <remarks>
         /// Returns true if the Python exception type represented by the
         /// PythonException instance matches the given exception type.

@@ -1,6 +1,8 @@
-﻿"""
+"""
 Code in this module gets loaded into the main clr module.
 """
+
+__version__ = "2.3.0.dev1"
 
 
 class clrproperty(object):

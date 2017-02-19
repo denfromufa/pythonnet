@@ -2,18 +2,38 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Reflection;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Python.Runtime
 {
     /// <summary>
     /// This class provides the public interface of the Python runtime.
     /// </summary>
-    public class PythonEngine
+    public class PythonEngine : IDisposable
     {
         private static DelegateManager delegateManager;
         private static bool initialized;
 
-        #region Properties
+        public PythonEngine()
+        {
+            Initialize();
+        }
+
+        public PythonEngine(params string[] args)
+        {
+            Initialize(args);
+        }
+
+        public PythonEngine(IEnumerable<string> args)
+        {
+            Initialize(args);
+        }
+
+        public void Dispose()
+        {
+            Shutdown();
+        }
 
         public static bool IsInitialized
         {
@@ -100,19 +120,21 @@ namespace Python.Runtime
             return Runtime.PyRun_SimpleString(code);
         }
 
-        #endregion
+        public static void Initialize()
+        {
+            Initialize(Enumerable.Empty<string>());
+        }
 
         /// <summary>
         /// Initialize Method
         /// </summary>
-        ///
         /// <remarks>
         /// Initialize the Python runtime. It is safe to call this method
         /// more than once, though initialization will only happen on the
         /// first call. It is *not* necessary to hold the Python global
         /// interpreter lock (GIL) to call this method.
         /// </remarks>
-        public static void Initialize()
+        public static void Initialize(IEnumerable<string> args)
         {
             if (!initialized)
             {
@@ -126,6 +148,8 @@ namespace Python.Runtime
                 initialized = true;
                 Exceptions.Clear();
 
+                Py.SetArgv(args);
+
                 // register the atexit callback (this doesn't use Py_AtExit as the C atexit
                 // callbacks are called after python is fully finalized but the python ones
                 // are called while the python engine is still running).
@@ -134,13 +158,15 @@ namespace Python.Runtime
                     "atexit.register(clr._AtExit)\n";
                 PyObject r = PythonEngine.RunString(code);
                 if (r != null)
+                {
                     r.Dispose();
+                }
 
                 // Load the clr.py resource into the clr module
                 IntPtr clr = Python.Runtime.ImportHook.GetCLRModule();
                 IntPtr clr_dict = Runtime.PyModule_GetDict(clr);
 
-                PyDict locals = new PyDict();
+                var locals = new PyDict();
                 try
                 {
                     IntPtr module = Runtime.PyImport_AddModule("clr._extras");
@@ -148,15 +174,17 @@ namespace Python.Runtime
                     IntPtr builtins = Runtime.PyEval_GetBuiltins();
                     Runtime.PyDict_SetItemString(module_globals, "__builtins__", builtins);
 
-                    var assembly = Assembly.GetExecutingAssembly();
+                    Assembly assembly = Assembly.GetExecutingAssembly();
                     using (Stream stream = assembly.GetManifestResourceStream("clr.py"))
-                    using (StreamReader reader = new StreamReader(stream))
+                    using (var reader = new StreamReader(stream))
                     {
                         // add the contents of clr.py to the module
                         string clr_py = reader.ReadToEnd();
                         PyObject result = RunString(clr_py, module_globals, locals.Handle);
                         if (null == result)
+                        {
                             throw new PythonException();
+                        }
                         result.Dispose();
                     }
 
@@ -165,7 +193,7 @@ namespace Python.Runtime
                     Runtime.PyDict_SetItemString(clr_dict, "_extras", module);
                     foreach (PyObject key in locals.Keys())
                     {
-                        if (!key.ToString().StartsWith("_"))
+                        if (!key.ToString().StartsWith("_") || key.ToString().Equals("__version__"))
                         {
                             PyObject value = locals[key];
                             Runtime.PyDict_SetItem(clr_dict, key.Handle, value.Handle);
@@ -181,17 +209,17 @@ namespace Python.Runtime
             }
         }
 
-        //====================================================================
-        // A helper to perform initialization from the context of an active
-        // CPython interpreter process - this bootstraps the managed runtime
-        // when it is imported by the CLR extension module.
-        //====================================================================
-#if (PYTHON32 || PYTHON33 || PYTHON34 || PYTHON35)
-        public static IntPtr InitExt() {
-#else
+        /// <summary>
+        /// A helper to perform initialization from the context of an active
+        /// CPython interpreter process - this bootstraps the managed runtime
+        /// when it is imported by the CLR extension module.
+        /// </summary>
+#if PYTHON3
+        public static IntPtr InitExt()
+#elif PYTHON2
         public static void InitExt()
-        {
 #endif
+        {
             try
             {
                 Initialize();
@@ -234,12 +262,12 @@ namespace Python.Runtime
             catch (PythonException e)
             {
                 e.Restore();
-#if (PYTHON32 || PYTHON33 || PYTHON34 || PYTHON35)
+#if PYTHON3
                 return IntPtr.Zero;
 #endif
             }
 
-#if (PYTHON32 || PYTHON33 || PYTHON34 || PYTHON35)
+#if PYTHON3
             return Python.Runtime.ImportHook.GetCLRModule();
 #endif
         }
@@ -247,7 +275,6 @@ namespace Python.Runtime
         /// <summary>
         /// Shutdown Method
         /// </summary>
-        ///
         /// <remarks>
         /// Shutdown and release resources held by the Python runtime. The
         /// Python runtime can no longer be used in the current process
@@ -266,17 +293,14 @@ namespace Python.Runtime
         /// <summary>
         /// AcquireLock Method
         /// </summary>
-        ///
         /// <remarks>
         /// Acquire the Python global interpreter lock (GIL). Managed code
         /// *must* call this method before using any objects or calling any
         /// methods on objects in the Python.Runtime namespace. The only
         /// exception is PythonEngine.Initialize, which may be called without
         /// first calling AcquireLock.
-        ///
         /// Each call to AcquireLock must be matched by a corresponding call
         /// to ReleaseLock, passing the token obtained from AcquireLock.
-        ///
         /// For more information, see the "Extending and Embedding" section
         /// of the Python documentation on www.python.org.
         /// </remarks>
@@ -289,11 +313,9 @@ namespace Python.Runtime
         /// <summary>
         /// ReleaseLock Method
         /// </summary>
-        ///
         /// <remarks>
         /// Release the Python global interpreter lock using a token obtained
         /// from a previous call to AcquireLock.
-        ///
         /// For more information, see the "Extending and Embedding" section
         /// of the Python documentation on www.python.org.
         /// </remarks>
@@ -306,12 +328,10 @@ namespace Python.Runtime
         /// <summary>
         /// BeginAllowThreads Method
         /// </summary>
-        ///
         /// <remarks>
         /// Release the Python global interpreter lock to allow other threads
         /// to run. This is equivalent to the Py_BEGIN_ALLOW_THREADS macro
         /// provided by the C Python API.
-        ///
         /// For more information, see the "Extending and Embedding" section
         /// of the Python documentation on www.python.org.
         /// </remarks>
@@ -324,12 +344,10 @@ namespace Python.Runtime
         /// <summary>
         /// EndAllowThreads Method
         /// </summary>
-        ///
         /// <remarks>
         /// Re-aquire the Python global interpreter lock for the current
         /// thread. This is equivalent to the Py_END_ALLOW_THREADS macro
         /// provided by the C Python API.
-        ///
         /// For more information, see the "Extending and Embedding" section
         /// of the Python documentation on www.python.org.
         /// </remarks>
@@ -342,7 +360,6 @@ namespace Python.Runtime
         /// <summary>
         /// ImportModule Method
         /// </summary>
-        ///
         /// <remarks>
         /// Given a fully-qualified module or package name, import the
         /// module and return the resulting module object as a PyObject
@@ -351,10 +368,7 @@ namespace Python.Runtime
         public static PyObject ImportModule(string name)
         {
             IntPtr op = Runtime.PyImport_ImportModule(name);
-            if (op == IntPtr.Zero)
-            {
-                return null;
-            }
+            Py.Throw();
             return new PyObject(op);
         }
 
@@ -362,7 +376,6 @@ namespace Python.Runtime
         /// <summary>
         /// ReloadModule Method
         /// </summary>
-        ///
         /// <remarks>
         /// Given a PyObject representing a previously loaded module, reload
         /// the module.
@@ -370,10 +383,7 @@ namespace Python.Runtime
         public static PyObject ReloadModule(PyObject module)
         {
             IntPtr op = Runtime.PyImport_ReloadModule(module.Handle);
-            if (op == IntPtr.Zero)
-            {
-                throw new PythonException();
-            }
+            Py.Throw();
             return new PyObject(op);
         }
 
@@ -381,7 +391,6 @@ namespace Python.Runtime
         /// <summary>
         /// ModuleFromString Method
         /// </summary>
-        ///
         /// <remarks>
         /// Given a string module name and a string containing Python code,
         /// execute the code in and return a module of the given name.
@@ -389,15 +398,9 @@ namespace Python.Runtime
         public static PyObject ModuleFromString(string name, string code)
         {
             IntPtr c = Runtime.Py_CompileString(code, "none", (IntPtr)257);
-            if (c == IntPtr.Zero)
-            {
-                throw new PythonException();
-            }
+            Py.Throw();
             IntPtr m = Runtime.PyImport_ExecCodeModule(name, c);
-            if (m == IntPtr.Zero)
-            {
-                throw new PythonException();
-            }
+            Py.Throw();
             return new PyObject(m);
         }
 
@@ -405,39 +408,60 @@ namespace Python.Runtime
         /// <summary>
         /// RunString Method
         /// </summary>
-        ///
         /// <remarks>
         /// Run a string containing Python code. Returns the result of
         /// executing the code string as a PyObject instance, or null if
         /// an exception was raised.
         /// </remarks>
-        public static PyObject RunString(string code)
+        public static PyObject RunString(
+            string code, IntPtr? globals = null, IntPtr? locals = null
+        )
         {
-            IntPtr globals = Runtime.PyEval_GetGlobals();
-            IntPtr locals = Runtime.PyDict_New();
-
-            IntPtr builtins = Runtime.PyEval_GetBuiltins();
-            Runtime.PyDict_SetItemString(locals, "__builtins__", builtins);
-
-            IntPtr flag = (IntPtr)257; /* Py_file_input */
-            IntPtr result = Runtime.PyRun_String(code, flag, globals, locals);
-            Runtime.Decref(locals);
-            if (result == IntPtr.Zero)
+            var borrowedGlobals = true;
+            if (globals == null)
             {
-                return null;
+                globals = Runtime.PyEval_GetGlobals();
+                if (globals == IntPtr.Zero)
+                {
+                    globals = Runtime.PyDict_New();
+                    Runtime.PyDict_SetItemString(
+                        globals.Value, "__builtins__",
+                        Runtime.PyEval_GetBuiltins()
+                    );
+                    borrowedGlobals = false;
+                }
             }
-            return new PyObject(result);
-        }
 
-        public static PyObject RunString(string code, IntPtr globals, IntPtr locals)
-        {
-            IntPtr flag = (IntPtr)257; /* Py_file_input */
-            IntPtr result = Runtime.PyRun_String(code, flag, globals, locals);
-            if (result == IntPtr.Zero)
+            var borrowedLocals = true;
+            if (locals == null)
             {
-                return null;
+                locals = Runtime.PyDict_New();
+                borrowedLocals = false;
             }
-            return new PyObject(result);
+
+            var flag = (IntPtr)257; /* Py_file_input */
+
+            try
+            {
+                IntPtr result = Runtime.PyRun_String(
+                    code, flag, globals.Value, locals.Value
+                );
+
+                Py.Throw();
+
+                return new PyObject(result);
+            }
+            finally
+            {
+                if (!borrowedLocals)
+                {
+                    Runtime.XDecref(locals.Value);
+                }
+                if (!borrowedGlobals)
+                {
+                    Runtime.XDecref(globals.Value);
+                }
+            }
         }
     }
 
@@ -446,7 +470,9 @@ namespace Python.Runtime
         public static GILState GIL()
         {
             if (!PythonEngine.IsInitialized)
+            {
                 PythonEngine.Initialize();
+            }
 
             return new GILState();
         }
@@ -479,19 +505,29 @@ namespace Python.Runtime
         public static KeywordArguments kw(params object[] kv)
         {
             var dict = new KeywordArguments();
-            if (kv.Length%2 != 0)
+            if (kv.Length % 2 != 0)
+            {
                 throw new ArgumentException("Must have an equal number of keys and values");
-            for (int i = 0; i < kv.Length; i += 2)
+            }
+            for (var i = 0; i < kv.Length; i += 2)
             {
                 IntPtr value;
                 if (kv[i + 1] is PyObject)
+                {
                     value = ((PyObject)kv[i + 1]).Handle;
+                }
                 else
+                {
                     value = Converter.ToPython(kv[i + 1], kv[i + 1]?.GetType());
+                }
                 if (Runtime.PyDict_SetItemString(dict.Handle, (string)kv[i], value) != 0)
+                {
                     throw new ArgumentException(string.Format("Cannot add key '{0}' to dictionary.", (string)kv[i]));
+                }
                 if (!(kv[i + 1] is PyObject))
-                    Runtime.Decref(value);
+                {
+                    Runtime.XDecref(value);
+                }
             }
             return dict;
         }
@@ -499,6 +535,51 @@ namespace Python.Runtime
         public static PyObject Import(string name)
         {
             return PythonEngine.ImportModule(name);
+        }
+
+        public static void SetArgv()
+        {
+            IEnumerable<string> args;
+            try
+            {
+                args = Environment.GetCommandLineArgs();
+            }
+            catch (NotSupportedException)
+            {
+                args = Enumerable.Empty<string>();
+            }
+
+            SetArgv(
+                new[] { "" }.Concat(
+                    Environment.GetCommandLineArgs().Skip(1)
+                )
+            );
+        }
+
+        public static void SetArgv(params string[] argv)
+        {
+            SetArgv(argv as IEnumerable<string>);
+        }
+
+        public static void SetArgv(IEnumerable<string> argv)
+        {
+            using (GIL())
+            {
+                string[] arr = argv.ToArray();
+                Runtime.PySys_SetArgvEx(arr.Length, arr, 0);
+                Py.Throw();
+            }
+        }
+
+        internal static void Throw()
+        {
+            using (GIL())
+            {
+                if (Runtime.PyErr_Occurred() != 0)
+                {
+                    throw new PythonException();
+                }
+            }
         }
     }
 }
